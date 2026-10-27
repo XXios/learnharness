@@ -73,6 +73,18 @@ contextBridge.exposeInMainWorld("lh", {
 			return () => ipcRenderer.removeListener("lh:subscriptions:changed", listener);
 		},
 	},
+	claudeCode: {
+		status: () => ipcRenderer.invoke("lh:claude-code:control", { op: "status" }),
+		connect: (enabled) => ipcRenderer.invoke("lh:claude-code:control", { op: "connect", enabled }),
+		check: () => ipcRenderer.invoke("lh:claude-code:control", { op: "check" }),
+		consent: (enabled) => ipcRenderer.invoke("lh:claude-code:control", { op: "consent", enabled }),
+		disconnect: () => ipcRenderer.invoke("lh:claude-code:control", { op: "disconnect" }),
+		onChange: (cb) => {
+			const listener = () => cb();
+			ipcRenderer.on("lh:claude-code:changed", listener);
+			return () => ipcRenderer.removeListener("lh:claude-code:changed", listener);
+		},
+	},
 	expandWindow: () => ipcRenderer.send("lh:expand-window"),
 	onZoom: (cb) => {
 		const listener = (_event, factor) => cb(factor);

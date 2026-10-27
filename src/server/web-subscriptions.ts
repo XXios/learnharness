@@ -10,6 +10,7 @@ import { createSubscriptions } from "../../electron/subscriptions.cjs";
 import { chatGPTControl } from "../../electron/chatgpt-ipc.cjs";
 import { subscriptionControl } from "../../electron/subscription-ipc.cjs";
 import { emit } from "../core/events.ts";
+import { claudeCodeWebRequest } from "./claude-code-web.ts";
 import type { ChatGPTStatus } from "../core/contracts/chatgpt.ts";
 import type { NativeSubscriptionSnapshot } from "../core/contracts/subscriptions.ts";
 import { configureWebSubscriptionRuntime, publishWebSubscriptionPacket, webSubscriptionsEnabled, type SubscriptionRuntimeChannel as Channel, type SubscriptionRuntimePacket as Packet } from "../agent/subscription-runtime.ts";
@@ -104,6 +105,7 @@ export function webSubscriptionOwner() {
 }
 /** Private runtime calls only: no HTTP lease/token operation exists. */
 export async function webSubscriptionRequest<T>(channel: Channel, op: string, fields: Record<string, unknown>): Promise<T> {
+	if (channel === "lh:claude-code") return claudeCodeWebRequest(op) as Promise<T>;
 	const owner = webSubscriptionOwner();
 	let value: unknown;
 	if (channel === "lh:chatgpt") {

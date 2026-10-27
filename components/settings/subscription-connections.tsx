@@ -4,7 +4,6 @@ import { NATIVE_SUBSCRIPTIONS, type NativeSubscriptionProviderId, type NativeSub
 import { Button } from "@/components/ui/button";
 import { notifySettingsSaved } from "@/components/settings-signal";
 import { ConnectionDialog, ConnectionFooter, ConnectionRow } from "./connection-controls";
-import { ChatGPTConnection } from "./chatgpt-connection";
 import { Toggle } from "./controls";
 import { useNativeSubscriptionBridge } from "./subscription-client";
 
@@ -126,9 +125,6 @@ export function NativeSubscriptionConnection({ providerId }: { providerId: Nativ
 		<ConnectionRow label={descriptor.label} action={status.connectionId ? "Manage…" : "Connect"} disabled={ui.busy || !status.available || ui.statuses.some((s) => s.pending)} onAction={() => ui.open(providerId)} />
 		{status.error && <p role="alert" className="text-xs text-red-400">{status.error}</p>}
 	</div>;
-}
-export function SubscriptionConnections({ setup = false }: { setup?: boolean }) {
-	return <div className="space-y-3" data-testid="subscription-connections"><ChatGPTConnection setup={setup} />{NATIVE_SUBSCRIPTIONS.map((p) => <NativeSubscriptionConnection key={p.providerId} providerId={p.providerId} />)}</div>;
 }
 export function NativeSubscriptionBackgroundAccess({ provider }: { provider: string | undefined }) {
 	const ui = useContext(Context), descriptor = NATIVE_SUBSCRIPTIONS.find((p) => p.logicalId === provider);

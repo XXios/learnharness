@@ -1,6 +1,6 @@
 /** Server-injected private web transport. The agent layer never imports a
  * filesystem owner or server composition root. Desktop IPC remains separate. */
-export type SubscriptionRuntimeChannel = "lh:chatgpt" | "lh:subscriptions";
+export type SubscriptionRuntimeChannel = "lh:chatgpt" | "lh:subscriptions" | "lh:claude-code";
 export type SubscriptionRuntimePacket = Record<string, unknown>;
 interface Runtime {
 	request?: <T>(channel: SubscriptionRuntimeChannel, op: string, fields: Record<string, unknown>) => Promise<T>;

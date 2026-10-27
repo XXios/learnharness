@@ -3,15 +3,40 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const { randomUUID } = require("node:crypto");
 
-const PROVIDERS = ["github-copilot", "xai"];
 const failure = (code) => Object.assign(new Error(code), { code });
 const nonempty = (value) => typeof value === "string" && value.length > 0 && !/[\x00-\x20\x7f]/.test(value);
+/** Per-provider descriptors for the pi-ai OAuth ("native") subscriptions:
+ * SDK module + factory, default endpoint, endpoint and credential rules. */
+const NATIVE_PROVIDERS = [
+	{
+		id: "github-copilot", label: "GitHub Copilot",
+		module: "@earendil-works/pi-ai/providers/github-copilot", factory: "githubCopilotProvider",
+		defaultBaseUrl: "https://api.individual.githubcopilot.com",
+		// Copilot's catalog is gated on the credential's model list.
+		requiresModelIds: true,
+		validateCredential(credential) {
+			if (credential.enterpriseUrl !== undefined && !safeDomain(credential.enterpriseUrl)) throw failure("storage");
+			if (credential.availableModelIds !== undefined && (!Array.isArray(credential.availableModelIds) || !credential.availableModelIds.every(nonempty))) throw failure("storage");
+		},
+		validEndpoint(url, credential) {
+			const domain = credential?.enterpriseUrl;
+			return !url.search && !url.hash && url.pathname === "/" && (!url.port || url.port === "443") && (url.hostname.endsWith(".githubcopilot.com") || (domain && (url.hostname === domain || url.hostname.endsWith(`.${domain}`))));
+		},
+	},
+	{
+		id: "xai", label: "Grok",
+		module: "@earendil-works/pi-ai/providers/xai", factory: "xaiProvider",
+		defaultBaseUrl: "https://api.x.ai/v1",
+		requiresModelIds: false,
+		validateCredential() {},
+		validEndpoint(url) { return url.origin === "https://api.x.ai" && url.pathname.replace(/\/$/, "") === "/v1" && !url.search && !url.hash; },
+	},
+];
+const PROVIDERS = NATIVE_PROVIDERS.map((p) => p.id);
+const nativeProvider = (providerId) => NATIVE_PROVIDERS.find((p) => p.id === providerId);
 function validateCredential(providerId, credential) {
 	if (!credential || credential.type !== "oauth" || !nonempty(credential.access) || !nonempty(credential.refresh) || !Number.isFinite(credential.expires) || credential.expires < 0) throw failure("storage");
-	if (providerId === "github-copilot") {
-		if (credential.enterpriseUrl !== undefined && !safeDomain(credential.enterpriseUrl)) throw failure("storage");
-		if (credential.availableModelIds !== undefined && (!Array.isArray(credential.availableModelIds) || !credential.availableModelIds.every(nonempty))) throw failure("storage");
-	}
+	nativeProvider(providerId)?.validateCredential(credential);
 	return credential;
 }
 function safeDomain(value) {
@@ -61,4 +86,4 @@ function fileStore(file, providerId, io = fs) {
 		},
 	};
 }
-module.exports = { PROVIDERS, failure, validateCredential, validateState, safeDomain, safeHttps, fileStore };
+module.exports = { NATIVE_PROVIDERS, nativeProvider, PROVIDERS, failure, validateCredential, validateState, safeDomain, safeHttps, fileStore };
