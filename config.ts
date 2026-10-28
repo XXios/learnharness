@@ -52,7 +52,9 @@ export type ModelRole =
 	| "visualMaker"
 	| "pdfReader"
 	| "extractor"
-	| "auditor";
+	| "auditor"
+	// Fork (docs/fork/anki-export.md A15): the Anki card curator.
+	| "cardCurator";
 
 /**
  * The LIVE graph store (src/store/graph.ts) — owned by the app's extraction

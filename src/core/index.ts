@@ -81,3 +81,6 @@ export * from "./coverage.ts";
 // ONE session→markdown formatter — the extractor's view and the user-facing
 // export share it. Pure, browser-safe.
 export * from "./session-markdown.ts";
+// Fork (docs/fork/anki-export-implementation.md): the Anki export's pure
+// surface — contracts, settings resolver, budget + export helpers.
+export * from "./anki/index.ts";

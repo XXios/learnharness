@@ -72,6 +72,7 @@ import { prettyModel } from "@/components/usage-format";
 import { cn } from "@/lib/utils";
 import { SettingsGroup, SettingsRow, Toggle, CommitInput } from "./controls.tsx";
 import { ModelMenuList, ThinkingMenuList } from "./model-menu";
+import { CardCuratorRow } from "./card-curator-row.tsx";
 import { SubscriptionBackgroundAccess } from "./subscription-ui";
 
 /** One slot's display identity — the tier's roster as the row hint rides
@@ -720,6 +721,8 @@ export function AgentSection({
 						</SettingsRow>
 					);
 				})}
+				{/* Fork (docs/fork/anki-export.md A15): the Anki card curator's own row. */}
+				<CardCuratorRow agent={agent} cheap={models?.cheap} catalog={catalog} Trigger={MenuTrigger} onSectionChange={onSectionChange} />
 			</SettingsGroup>
 
 			<SettingsGroup label="Tools" testid="group-tools">
