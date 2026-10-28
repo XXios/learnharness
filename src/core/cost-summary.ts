@@ -18,6 +18,7 @@
  */
 
 import type { CallUsage, EmissionStats, ExtractionRunUsage } from "./contracts.ts";
+import type { AnkiCurationRun } from "./contracts/anki.ts";
 import { sumSteps, isSubscriptionModel, subscriptionLabels, type CallPricer } from "./prices.ts";
 
 /** One pipeline stage's cumulative cost across every run. */
@@ -43,8 +44,9 @@ export interface RecentRun {
 	/** ISO wall-clock. */
 	at: string;
 	durationMs: number;
-	/** "extraction" covers both front doors (chat + notes). */
-	kind: "extraction";
+	/** "extraction" covers both front doors (chat + notes). "curation" =
+	 *  one Anki card-curator call (fork, docs/fork/anki-export.md I15). */
+	kind: "extraction" | "curation";
 	/** Chat title / source file path / fixed label for naming runs. */
 	title: string;
 	/** Whole-run inferred USD; null only when EVERY stage is unpriced. */
@@ -69,6 +71,9 @@ export interface GraphCostSummary {
 	stages: {
 		extraction: StageCost;
 		audit: StageCost;
+		/** Fork (Anki export, I15): the card curator's calls — present only
+		 *  when the caller passes `curations`. */
+		curation?: StageCost;
 	};
 	/** Newest first, capped at `recentCap` (default 10). */
 	runs: RecentRun[];
@@ -80,6 +85,9 @@ export interface CostSummaryInput {
 	chats: { title: string; extractions: ExtractionRunUsage[] }[];
 	/** Notes-front-door runs: imported file path + the source's usage log. */
 	sources: { filePath: string; extractions: ExtractionRunUsage[] }[];
+	/** Fork (Anki export, I15): card-curator calls (data/anki/runs.jsonl).
+	 *  Absent = the fold's output is exactly as before. */
+	curations?: AnkiCurationRun[];
 	recentCap?: number;
 }
 
@@ -176,17 +184,44 @@ export function graphCostSummary(input: CostSummaryInput, price: CallPricer): Gr
 		for (const run of source.extractions) foldExtractionRun(run, source.filePath);
 	}
 
+	// Fork (Anki export, I15): one single-stage run per curator call.
+	const curation = input.curations ? emptyStage() : undefined;
+	for (const run of input.curations ?? []) {
+		const stage = curation!;
+		const { model, steps } = run.usage;
+		stage.runs++;
+		mergeTokens(stage.tokens, steps);
+		const dollars = stageDollars(model, steps, price);
+		const subscription = isSubscriptionModel(model);
+		if (subscription) {
+			stage.subscriptionRuns = (stage.subscriptionRuns ?? 0) + 1;
+			stage.subscriptionProviders = [...new Set([...(stage.subscriptionProviders ?? []), ...subscriptionLabels([model])])];
+		} else if (dollars === null) stage.unpricedRuns++;
+		else stage.dollars += dollars;
+		runs.push({
+			...(subscription ? { subscriptionRuns: 1, subscriptionProviders: subscriptionLabels([model]) } : {}),
+			startedAt: run.startedAt,
+			at: run.at,
+			durationMs: run.durationMs,
+			kind: "curation",
+			title: `Anki cards · ${run.title}`,
+			dollars,
+			tokens: sumSteps(steps),
+		});
+	}
+
 	runs.sort((a, b) => b.startedAt - a.startedAt);
 	const capped = runs.slice(0, input.recentCap ?? 10);
 
 	// A run is "unpriced" when it billed nothing countable at all.
-	const unpricedRuns = runs.filter((r) => r.dollars === null && (r.subscriptionRuns ?? 0) < 2).length;
-	const subscriptionRuns = (extraction.subscriptionRuns ?? 0) + (audit.subscriptionRuns ?? 0);
+	// (A curation run has ONE stage, so one subscription stage covers it.)
+	const unpricedRuns = runs.filter((r) => r.dollars === null && (r.subscriptionRuns ?? 0) < (r.kind === "curation" ? 1 : 2)).length;
+	const subscriptionRuns = (extraction.subscriptionRuns ?? 0) + (audit.subscriptionRuns ?? 0) + (curation?.subscriptionRuns ?? 0);
 	return {
-		...(subscriptionRuns ? { subscriptionRuns, subscriptionProviders: [...new Set([...(extraction.subscriptionProviders ?? []), ...(audit.subscriptionProviders ?? [])])] } : {}),
-		totalDollars: extraction.dollars + audit.dollars,
+		...(subscriptionRuns ? { subscriptionRuns, subscriptionProviders: [...new Set([...(extraction.subscriptionProviders ?? []), ...(audit.subscriptionProviders ?? []), ...(curation?.subscriptionProviders ?? [])])] } : {}),
+		totalDollars: extraction.dollars + audit.dollars + (curation?.dollars ?? 0),
 		unpricedRuns,
-		stages: { extraction, audit },
+		stages: { extraction, audit, ...(curation ? { curation } : {}) },
 		runs: capped,
 	};
 }

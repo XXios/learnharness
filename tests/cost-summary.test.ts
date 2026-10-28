@@ -111,3 +111,41 @@ describe("graphCostSummary (the cost pill's fold)", () => {
 		assert.equal(empty.stages.extraction.tokens.inputTokens, undefined);
 	});
 });
+
+// Fork (docs/fork/anki-export-implementation.md I15): the Anki card
+// curator's calls join the pill as a third, optional stage.
+describe("graphCostSummary — the Anki curation stage (fork)", () => {
+	const curationRun = (startedAt: number, model: string) => ({
+		startedAt,
+		at: new Date(startedAt).toISOString(),
+		durationMs: 1200,
+		draftId: "anki_x",
+		sessionId: "chat_a",
+		title: "Carnot",
+		outcome: "done" as const,
+		usage: { model, steps: [step(1_000, 200)] },
+	});
+
+	test("absent curations: no curation stage, totals as before", () => {
+		const s = graphCostSummary({ chats: [], sources: [] });
+		assert.equal(s.stages.curation, undefined);
+		assert.deepEqual(Object.keys(s.stages), ["extraction", "audit"]);
+	});
+
+	test("priced curator calls add a stage, a recent run, and dollars", () => {
+		const s = graphCostSummary({ chats: [], sources: [], curations: [curationRun(5, PRICED)] });
+		assert.equal(s.stages.curation!.runs, 1);
+		assert.ok(s.stages.curation!.dollars > 0);
+		assert.equal(s.totalDollars, s.stages.curation!.dollars);
+		assert.equal(s.runs[0]!.kind, "curation");
+		assert.equal(s.runs[0]!.title, "Anki cards · Carnot");
+		assert.equal(s.unpricedRuns, 0);
+	});
+
+	test("an unpriced curator model counts as unpriced, never as zero", () => {
+		const s = graphCostSummary({ chats: [], sources: [], curations: [curationRun(5, "nowhere:unknown-model")] });
+		assert.equal(s.stages.curation!.unpricedRuns, 1);
+		assert.equal(s.runs[0]!.dollars, null);
+		assert.equal(s.unpricedRuns, 1);
+	});
+});

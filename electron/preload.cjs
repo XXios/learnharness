@@ -73,6 +73,10 @@ contextBridge.exposeInMainWorld("lh", {
 			return () => ipcRenderer.removeListener("lh:subscriptions:changed", listener);
 		},
 	},
+	// Fork (docs/fork/anki-export.md A20): the Anki export's native Save dialog.
+	anki: {
+		saveFile: (fileName, text) => ipcRenderer.invoke("lh:anki:save", { fileName, text }),
+	},
 	expandWindow: () => ipcRenderer.send("lh:expand-window"),
 	onZoom: (cb) => {
 		const listener = (_event, factor) => cb(factor);

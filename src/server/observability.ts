@@ -26,6 +26,8 @@ import { catalogContextLimits } from "./model-catalog.ts";
 import { listJobs } from "./jobs.ts";
 import { jobCost } from "./pricing.ts";
 import type { JobRecord } from "../core/contracts.ts";
+import type { AnkiCurationActivity } from "../core/contracts/anki.ts";
+import { curationActivity } from "./anki.ts";
 
 export { abortExtraction, extractionStatuses, type ExtractionPhase, type RunningExtraction } from "../agent/subagents/extraction.ts";
 export { chatStore } from "../store/chats.ts";
@@ -69,6 +71,8 @@ export interface ActivityExtraction {
 export function activityFeed(): {
 	jobs: ActivityJob[];
 	extractions: ActivityExtraction[];
+	/** Fork (Anki export, I15): running card curations. */
+	curations: AnkiCurationActivity[];
 	graphRevision: number;
 } {
 	const chats = chatStore.listChats();
@@ -104,6 +108,7 @@ export function activityFeed(): {
 	return {
 		jobs,
 		extractions: extractions.sort((a, b) => a.startedAt - b.startedAt),
+		curations: curationActivity(),
 		graphRevision: graphRevision(),
 	};
 }

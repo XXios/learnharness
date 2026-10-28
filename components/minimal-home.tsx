@@ -24,6 +24,7 @@ import { ChainTableOverlay } from "@/components/chain-table.tsx";
 import { GraphCostControl } from "@/components/graph-view.tsx";
 import { NotesImportErrors, useNotesImport } from "@/components/notes-import.tsx";
 import { Hint } from "@/components/ui/hint";
+import { AnkiButton } from "@/components/anki/anki-button.tsx";
 import type { ChatSummary, GraphCostSummary, GraphSnapshot } from "@/src/core";
 
 /** The quiet centered summary — a pure body (props in, markup out) so
@@ -193,6 +194,8 @@ export function MinimalHome({
 							</button>
 						</Hint>
 					</div>
+					{/* Fork (docs/fork/anki-export.md A16): the Anki entry, beside Import. */}
+					<AnkiButton />
 				</div>
 				<NotesImportErrors errors={notesImport.errors} />
 				{costs && costs.runs.length > 0 && <GraphCostControl costs={costs} />}

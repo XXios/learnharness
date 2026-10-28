@@ -17,7 +17,7 @@
  * Extraction abort is idempotent by design (aborting with nothing in
  * flight is success — the blob is gone either way) -> 200.
  */
-import { abortExtraction, abortJob, abortTurn } from "@/src/server";
+import { abortCuration, abortExtraction, abortJob, abortTurn } from "@/src/server";
 
 export async function POST(req: Request) {
 	let body: unknown;
@@ -27,8 +27,8 @@ export async function POST(req: Request) {
 		return Response.json({ error: "Invalid JSON body" }, { status: 400 });
 	}
 	const { kind, id } = (body ?? {}) as { kind?: string; id?: string };
-	if ((kind !== "job" && kind !== "extraction" && kind !== "turn") || typeof id !== "string" || id === "") {
-		return Response.json({ error: 'Body must be {kind: "job"|"extraction"|"turn", id: string}' }, { status: 400 });
+	if ((kind !== "job" && kind !== "extraction" && kind !== "turn" && kind !== "curation") || typeof id !== "string" || id === "") {
+		return Response.json({ error: 'Body must be {kind: "job"|"extraction"|"turn"|"curation", id: string}' }, { status: 400 });
 	}
 	if (!/^[A-Za-z0-9:_-]+$/.test(id)) {
 		return Response.json({ error: "Invalid id" }, { status: 400 });
@@ -45,6 +45,12 @@ export async function POST(req: Request) {
 	if (kind === "turn") {
 		const outcome = abortTurn(id);
 		if (!outcome.ok) return Response.json({ ok: false, reason: outcome.reason }, { status: 409 });
+		return Response.json({ ok: true });
+	}
+	// Fork (Anki export, I15): a card curation, keyed by its draft id —
+	// idempotent like extraction (nothing running is the same outcome).
+	if (kind === "curation") {
+		abortCuration(id);
 		return Response.json({ ok: true });
 	}
 	// kind === "extraction": true cancellation; idempotent (nothing in

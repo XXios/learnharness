@@ -46,6 +46,8 @@ export const BACKGROUND_MODEL_ROLES = [
 	"visualMaker",
 	"extractor",
 	"auditor",
+	// Fork (docs/fork/anki-export.md A15): the Anki card curator.
+	"cardCurator",
 ] as const;
 
 export type BackgroundModelRole = (typeof BACKGROUND_MODEL_ROLES)[number];
@@ -224,6 +226,8 @@ export const ROLE_SLOT: Readonly<Record<ModelRole, ModelSlotName>> = {
 	demoBuilder: "cheap",
 	extractor: "cheap",
 	auditor: "cheap",
+	// Fork (A15): the same slot as the extractor's (pinned by a test).
+	cardCurator: "cheap",
 	visualMaker: "vision",
 	pdfReader: "vision",
 };

@@ -77,6 +77,7 @@ import { MenuShell } from "@/components/menu-shell.tsx";
 import { DeleteNodeDialog } from "@/components/delete-node-dialog.tsx";
 import { ChainTableOverlay } from "@/components/chain-table.tsx";
 import { Hint } from "@/components/ui/hint";
+import { AnkiButton } from "@/components/anki/anki-button.tsx";
 import {
 	ARROW_LENGTH_LADDER,
 	CHARGE_RANGE,
@@ -302,7 +303,8 @@ function graphProviders(value: { subscriptionRuns?: number; subscriptionProvider
 	return value.subscriptionProviders ?? ((value.subscriptionRuns ?? 0) > 0 ? ["ChatGPT"] : []);
 }
 function graphUsageLabel(costs: Pick<GraphCostSummary, "stages">): string {
-	const stages = [costs.stages.extraction, costs.stages.audit];
+	// Fork (Anki export, I15): the curation stage joins when present.
+	const stages = [costs.stages.extraction, costs.stages.audit, ...(costs.stages.curation ? [costs.stages.curation] : [])];
 	const providers = [...new Set(stages.flatMap(graphProviders))];
 	const priced = stages.some((stage) => stage.runs - stage.unpricedRuns - (stage.subscriptionRuns ?? 0) > 0);
 	const dollars = displayCostTotals(costs).totalDollars;
@@ -325,8 +327,9 @@ export function displayCostTotals(costs: Pick<GraphCostSummary, "stages">): {
 	// The two live stages (the spine came and went on one day,
 	// 2026-09-30 — digest-aware extraction replaced it).
 	return {
-		totalDollars: costs.stages.extraction.dollars + costs.stages.audit.dollars,
-		unpricedRuns: costs.stages.extraction.unpricedRuns + costs.stages.audit.unpricedRuns,
+		// Fork (Anki export, I15): + the curation stage when present.
+		totalDollars: costs.stages.extraction.dollars + costs.stages.audit.dollars + (costs.stages.curation?.dollars ?? 0),
+		unpricedRuns: costs.stages.extraction.unpricedRuns + costs.stages.audit.unpricedRuns + (costs.stages.curation?.unpricedRuns ?? 0),
 	};
 }
 
@@ -386,6 +389,8 @@ function GraphCostPanel({ costs }: { costs: GraphCostSummary }) {
 	const stageRows: [string, GraphCostSummary["stages"]["extraction"]][] = [
 		["Extraction", costs.stages.extraction],
 		["Audit", costs.stages.audit],
+		// Fork (Anki export, I15).
+		...(costs.stages.curation ? [["Anki cards", costs.stages.curation] as [string, GraphCostSummary["stages"]["extraction"]]] : []),
 	];
 	// The displayed figures come from displayCostTotals (naming excluded —
 	// the pill and this panel must agree).
@@ -433,7 +438,7 @@ function GraphCostPanel({ costs }: { costs: GraphCostSummary }) {
 									</span>
 								)}
 							</span>
-							<span className="shrink-0 tabular-nums">{fmtRunCost(run.dollars, graphProviders(run))}{run.dollars === null && run.subscriptionRuns === 1 ? " +1 unpriced" : ""}</span>
+							<span className="shrink-0 tabular-nums">{fmtRunCost(run.dollars, graphProviders(run))}{run.dollars === null && run.subscriptionRuns === 1 && run.kind !== "curation" ? " +1 unpriced" : ""}</span>
 						</div>
 					))}
 			</div>
@@ -944,6 +949,8 @@ export function GraphChromeRow({
 					</button>
 				</Hint>
 			</div>
+			{/* Fork (docs/fork/anki-export.md A16): the Anki entry, beside Import. */}
+			<AnkiButton />
 			{!isEmpty && (
 				// Rendering settings — own component; the gear toggles it. The
 				// gear sits at the far right (owner, round 3) so its panel drops

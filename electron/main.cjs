@@ -725,6 +725,12 @@ async function main() {
 		if (!trustedAppWindows.has(BrowserWindow.fromWebContents(event.sender)) || !trustedSender(event, new URL(url).origin, BrowserWindow)) throw new Error("Untrusted desktop request.");
 		checkForUpdates({ manual: true });
 	});
+	// Fork (docs/fork/anki-export.md A20): the Anki export's native Save dialog.
+	require("./anki.cjs").registerAnkiIpc({
+		ipcMain,
+		app,
+		trusted: (event) => trustedAppWindows.has(BrowserWindow.fromWebContents(event.sender)) && trustedSender(event, new URL(url).origin, BrowserWindow),
+	});
 
 	// Sidebar-at-narrow-window (owner, 2026-09-17): the renderer auto-closes
 	// the sidebar below SIDEBAR_AUTOCLOSE (928px); opening it again at that

@@ -77,6 +77,8 @@ declare global {
 			checkForUpdates?: () => Promise<void>;
 			installUpdate?: () => void;
 			onOpenSettings?: (cb: (section: string) => void) => () => void;
+			/** Fork (Anki export, A20): the native Save dialog. */
+			anki?: { saveFile: (fileName: string, text: string) => Promise<{ saved: true; path: string } | { saved: false }> };
 		};
 	}
 }

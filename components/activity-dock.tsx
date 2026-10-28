@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIcon, BotIcon, FileTextIcon, PenToolIcon, PlayIcon, SearchIcon, SquareIcon, WaypointsIcon } from "lucide-react";
+import { ActivityIcon, BotIcon, FileTextIcon, LayersIcon, PenToolIcon, PlayIcon, SearchIcon, SquareIcon, WaypointsIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CallUsage, JobKind, JobRecord } from "@/src/core";
 import { isModelsRefusal, isProviderKeyRefusal, subscriptionLabel, subscriptionLabels } from "@/src/core";
@@ -67,12 +67,26 @@ export interface FeedExtraction {
 	startedAt: number;
 }
 
+/** Fork (docs/fork/anki-export.md I15): a running Anki card curation —
+ *  mirror of the core's AnkiCurationActivity. */
+export interface FeedCuration {
+	/** The draft id — the abort key. */
+	id: string;
+	title: string;
+	sessions: number;
+	settled: number;
+	startedAt: number;
+	costUsd: number | null;
+	model?: string;
+}
+
 export interface ActivityFeed {
 	jobs: FeedJob[];
 	extractions: FeedExtraction[];
+	curations?: FeedCuration[];
 }
 
-const EMPTY_FEED: ActivityFeed = { jobs: [], extractions: [] };
+const EMPTY_FEED: ActivityFeed = { jobs: [], extractions: [], curations: [] };
 
 // ─── The activity feed (composition root: the root layout) ───────────────────
 
@@ -109,7 +123,7 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
 				if (res.ok) {
 					const data = (await res.json()) as Partial<ActivityFeed>;
 					if (alive)
-						setFeed({ jobs: data.jobs ?? [], extractions: data.extractions ?? [] });
+						setFeed({ jobs: data.jobs ?? [], extractions: data.extractions ?? [], curations: data.curations ?? [] });
 				}
 			} catch {
 				// transport blip: keep the last feed, announce again next event
@@ -169,7 +183,7 @@ export interface ActivityBlob {
 	/** job.id, or the extraction job's row id (source id, or "src#i" for
 	 *  chunk jobs — unique per row, per-chunk jobs owner 2026-09-28). */
 	id: string;
-	process: "job" | "extraction";
+	process: "job" | "extraction" | "curation";
 	/** Sub-agent kind for jobs (extraction blobs have none). */
 	jobKind?: JobKind;
 	/** Extraction phase (extracting/auditing/merging/embedding); jobs carry none. */
@@ -250,6 +264,21 @@ export function toBlobs(feed: ActivityFeed): ActivityBlob[] {
 			cost: null, // extraction runs don't ride the money channel (v1)
 			context: null,
 			activity: "",
+		});
+	}
+	// Fork (docs/fork/anki-export.md I15): Anki card curations, cost joined
+	// server-side; the abort key is the draft id (blob.id).
+	for (const run of feed.curations ?? []) {
+		blobs.push({
+			id: run.id,
+			process: "curation",
+			title: run.title,
+			chatId: run.id,
+			startedAt: run.startedAt,
+			cost: run.costUsd,
+			context: null,
+			activity: `${run.settled}/${run.sessions} ${run.sessions === 1 ? "session" : "sessions"}`,
+			...(run.model ? { model: run.model } : {}),
 		});
 	}
 	blobs.sort((a, b) => a.startedAt - b.startedAt);
@@ -389,11 +418,13 @@ function ActivityBlobRow({
 	abortState: AbortState | undefined;
 	onAbort: () => void;
 }) {
-	const Icon = blob.process === "extraction" ? WaypointsIcon : (blob.jobKind && KIND_ICON[blob.jobKind]) || BotIcon;
+	const Icon = blob.process === "extraction" ? WaypointsIcon : blob.process === "curation" ? LayersIcon : (blob.jobKind && KIND_ICON[blob.jobKind]) || BotIcon;
 	const label =
 		blob.process === "extraction"
 			? `Extraction — ${blob.phase ?? "running"}`
-			: blob.jobKind === "research"
+			: blob.process === "curation"
+				? "Anki cards"
+				: blob.jobKind === "research"
 				? "Researcher"
 				: blob.jobKind === "demo"
 					? "Demo builder"
@@ -487,9 +518,11 @@ function ActivityBlobRow({
 								<span className="tabular-nums text-card-foreground">{blob.steps}</span>
 							</div>
 						)}
-						<a href={`/chat/${blob.chatId}`} className="text-primary hover:underline">
-							Open session →
-						</a>
+						{blob.process !== "curation" && (
+							<a href={`/chat/${blob.chatId}`} className="text-primary hover:underline">
+								Open session →
+							</a>
+						)}
 					</div>
 					<div className="mt-2 text-muted-foreground/80">
 					{abortState === "failed" && "Abort failed — try again"}
