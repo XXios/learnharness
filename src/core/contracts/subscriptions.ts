@@ -9,6 +9,15 @@ export const NATIVE_SUBSCRIPTIONS = [
 	{ providerId: "xai", logicalId: "xai-subscription", label: "Grok" },
 ] as const;
 
+/** Every subscription connection: logical provider id + display label. The one
+ * list usage labels and the model picker read; add a connection here once. */
+export interface SubscriptionProviderDescriptor { logicalId: string; label: string }
+export const SUBSCRIPTION_PROVIDERS: readonly SubscriptionProviderDescriptor[] = [
+	{ logicalId: "chatgpt", label: "ChatGPT" },
+	...NATIVE_SUBSCRIPTIONS.map(({ logicalId, label }) => ({ logicalId, label })),
+	{ logicalId: "claude-code-subscription", label: "Claude" },
+];
+
 export interface SubscriptionPrompt {
 	id: string;
 	type: "text" | "secret" | "select" | "manual_code";
