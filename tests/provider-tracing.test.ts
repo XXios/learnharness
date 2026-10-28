@@ -37,7 +37,7 @@ describe("standalone JavaScript tracing exclusions and native workaround policy"
 		assert.equal(ignore(`${root}/node_modules/gcp-metadata/build/src/index.js`), false);
 	});
 	it("preserves all secret exclusions exactly", () => {
-		assert.deepEqual(patterns, ["**/data/**/*", "auth.json", "chatgpt-credentials.json*", "github-copilot-credentials.json*", "xai-credentials.json*", ".env*"]);
+		assert.deepEqual(patterns, ["**/data/**/*", "auth.json", "chatgpt-credentials.json*", "github-copilot-credentials.json*", "xai-credentials.json*", "claude-code-connection.json*", "claude-code-workdir/**", ".env*"]);
 	});
 	it("retains exactly the narrow native-Turbopack closure workaround and existing runtime includes", () => {
 		assert.deepEqual(nextConfig.outputFileTracingIncludes!["*"], [
@@ -50,6 +50,8 @@ describe("standalone JavaScript tracing exclusions and native workaround policy"
 			"node_modules/@earendil-works/pi-ai/dist/auth/oauth/{load,github-copilot,xai,device-code}.js",
 			"node_modules/@earendil-works/pi-ai/dist/utils/sleep.js",
 			"node_modules/@earendil-works/pi-agent-core/dist/**/*.json",
+			"node_modules/@anthropic-ai/claude-agent-sdk/**/*",
+			"node_modules/@anthropic-ai/claude-agent-sdk-*/**/*",
 			"node_modules/gcp-metadata/**/*",
 			"node_modules/json-bigint/**/*",
 			"node_modules/bignumber.js/**/*",

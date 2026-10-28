@@ -5,7 +5,8 @@ import { afterEach, test } from "node:test";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { parseHTML } from "linkedom";
-import { NativeSubscriptionConnection, NativeSubscriptionUIProvider, SubscriptionConnections, COPILOT_POLICY_NOTICE, emptySubscriptionStatus } from "../components/settings/subscription-connections.tsx";
+import { SubscriptionConnections } from "../components/settings/subscription-ui.tsx";
+import { NativeSubscriptionConnection, NativeSubscriptionUIProvider, COPILOT_POLICY_NOTICE, emptySubscriptionStatus } from "../components/settings/subscription-connections.tsx";
 import { ChatGPTUIProvider } from "../components/settings/chatgpt-connection.tsx";
 import type { NativeSubscriptionControlBridge, NativeSubscriptionProviderId, NativeSubscriptionStatus } from "../src/core/contracts/subscriptions.ts";
 const dom = parseHTML("<html><body></body></html>");
@@ -45,11 +46,12 @@ async function click(element: HTMLElement) { assert(element); await act(async ()
 async function connectionStep(id: string) { await click(button("Connect", row(id))); await click(button("Continue", dialog())); }
 afterEach(async () => { await act(async () => root?.unmount()); host?.remove(); root = undefined; host = undefined; delete window.lh; });
 
-test("three compact rows render in approved order with no browser-only sign-in or fabricated identities", () => {
+test("four compact rows render in approved order with no browser-only sign-in or fabricated identities", () => {
 	const html = renderToStaticMarkup(<ChatGPTUIProvider><NativeSubscriptionUIProvider><SubscriptionConnections /></NativeSubscriptionUIProvider></ChatGPTUIProvider>);
 	assert(html.indexOf('data-testid="chatgpt-connection"') < html.indexOf('data-testid="github-copilot-connection"'));
 	assert(html.indexOf('data-testid="github-copilot-connection"') < html.indexOf('data-testid="xai-connection"'));
-	assert.equal((html.match(/>Connect<\/button>/g) ?? []).length, 3);
+	assert(html.indexOf('data-testid="xai-connection"') < html.indexOf('data-testid="claude-code-connection"'));
+	assert.equal((html.match(/>Connect<\/button>/g) ?? []).length, 4);
 	assert(!html.includes("@")); assert(!html.includes("Add accounts"));
 });
 for (const [id, label] of [["github-copilot", "GitHub Copilot"], ["xai", "Grok"]] as const) test(`${id}: disclosure and connection are separate steps with no duplicated content or early authorization`, async () => {

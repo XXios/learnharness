@@ -29,6 +29,7 @@ const { createChatGPT, fileStore } = require("./chatgpt.cjs");
 const { attachChatGPTChild, trustedSender, chatGPTControl } = require("./chatgpt-ipc.cjs");
 const { createSubscriptions, loadSubscriptionSDK } = require("./subscriptions.cjs");
 const { attachSubscriptionChild, subscriptionControl } = require("./subscription-ipc.cjs");
+const { createClaudeCode, claudeCodeControl, attachClaudeCodeChild, loadClaudeCodeSDK } = require("./claude-code.cjs");
 const { desktopAPIHeaders } = require("./desktop-api.cjs");
 const { openWebSubscriptionBrowser } = require("./web-subscription-browser.cjs");
 const { randomBytes } = require("node:crypto");
@@ -139,6 +140,8 @@ let chatgpt = null;
 let chatgptChild = null;
 let subscriptions = null;
 let subscriptionChild = null;
+let claudeCode = null;
+let claudeCodeChild = null;
 // Per-launch request capability, never OAuth tokens and never renderer state.
 let desktopAPISecret = null;
 let reopenWindow = null;
@@ -229,6 +232,7 @@ function startServer(port) {
 		serverProcess = child;
 		chatgptChild = attachChatGPTChild(child, chatgpt);
 		subscriptionChild = attachSubscriptionChild(child, subscriptions);
+		claudeCodeChild = attachClaudeCodeChild(child, claudeCode);
 		const fwd = (buf) => buf.toString().trimEnd().split("\n").forEach((l) => l && log(`server: ${l}`));
 		child.stdout.on("data", fwd);
 		child.stderr.on("data", fwd);
@@ -239,8 +243,11 @@ function startServer(port) {
 			chatgptChild = null;
 			subscriptionChild?.dispose();
 			subscriptionChild = null;
+			claudeCodeChild?.dispose();
+			claudeCodeChild = null;
 			chatgpt?.close();
 			subscriptions?.close();
+			claudeCode?.close();
 		});
 		resolve(child);
 	});
@@ -266,6 +273,7 @@ function waitUntilUp(url, tries = 150) {
 function killServer() {
 	chatgpt?.close();
 	subscriptions?.close();
+	claudeCode?.close();
 	if (!serverProcess) return;
 	const child = serverProcess;
 	serverProcess = null;
@@ -635,6 +643,7 @@ async function main() {
 	app.on("window-all-closed", () => {
 		chatgpt?.pause();
 		subscriptions?.pause();
+		claudeCode?.pause();
 		// macOS convention: the app stays resident, reactivated from the Dock.
 		if (process.platform !== "darwin") app.quit();
 	});
@@ -676,6 +685,15 @@ async function main() {
 			},
 		});
 		await subscriptions.ready;
+		claudeCode = createClaudeCode({
+			directory: app.getPath("userData"),
+			cwd: path.join(app.getPath("userData"), "claude-code-workdir"),
+			loadSDK: () => loadClaudeCodeSDK(path.dirname(serverEntry())),
+			onChange: (snapshot) => {
+				claudeCodeChild?.send(snapshot);
+				for (const win of BrowserWindow.getAllWindows()) win.webContents.send("lh:claude-code:changed");
+			},
+		});
 		log(`starting server: ${serverEntry()}`);
 		log(`data dir: ${DATA_DIR()}${fs.existsSync(AUTH_FILE()) ? " · auth.json: present" : " · auth.json: ABSENT (no BYOK keys yet)"}`);
 		await startServer(new URL(url).port);
@@ -700,6 +718,12 @@ async function main() {
 			throw new Error("Subscription sign-in requires the desktop app's private server connection.");
 		}
 		return subscriptionControl(command, subscriptions);
+	});
+
+	ipcMain.handle("lh:claude-code:control", async (event, command) => {
+		if (!trustedAppWindows.has(BrowserWindow.fromWebContents(event.sender)) || !trustedSender(event, new URL(url).origin, BrowserWindow)) throw new Error("Untrusted desktop request.");
+		if (!claudeCode || !serverProcess?.connected) throw new Error("The Claude connection requires the desktop app's private server connection.");
+		return claudeCodeControl(command, claudeCode);
 	});
 
 	// The dev shell has no browser tabs. Only a one-use action on its own
@@ -741,7 +765,7 @@ async function main() {
 		const target = SIDEBAR_AUTOCLOSE;
 		if (width < target) win.setBounds({ x, y, width: target, height });
 	});
-	reopenWindow = () => { chatgpt?.resume(); subscriptions?.resume(); return createWindow(url); };
+	reopenWindow = () => { chatgpt?.resume(); subscriptions?.resume(); claudeCode?.resume(); return createWindow(url); };
 	app.on("activate", () => {
 		if (BrowserWindow.getAllWindows().length === 0) reopenWindow();
 	});

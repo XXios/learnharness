@@ -51,6 +51,8 @@ const nextConfig: NextConfig = {
 			"chatgpt-credentials.json*",
 			"github-copilot-credentials.json*",
 			"xai-credentials.json*",
+			"claude-code-connection.json*",
+			"claude-code-workdir/**",
 			".env*",
 		],
 	},
@@ -93,6 +95,10 @@ const nextConfig: NextConfig = {
 			// its private runtime chain. Includes are applied after traversal.
 			// This is the verified GoogleAuth closure, not a general dep copy;
 			// the offline native Pi gate must catch future SDK closure changes.
+			// Fork (Claude subscription): the Agent SDK resolves its native
+			// CLI binary with a computed require.resolve the tracer cannot see.
+			"node_modules/@anthropic-ai/claude-agent-sdk/**/*",
+			"node_modules/@anthropic-ai/claude-agent-sdk-*/**/*",
 			"node_modules/gcp-metadata/**/*",
 			"node_modules/json-bigint/**/*",
 			"node_modules/bignumber.js/**/*",
@@ -107,6 +113,7 @@ const nextConfig: NextConfig = {
 		"pdfjs-dist", // sources v0: bundling breaks its node fake-worker path
 		"@napi-rs/canvas", // native binding — bundling breaks the .node require
 		"@resvg/resvg-js", // native binding — same
+		"@anthropic-ai/claude-agent-sdk", // fork: spawns its bundled native CLI binary
 	],
 };
 
